@@ -119,6 +119,7 @@ Validate states:
 
 ## Limitations / caveats
 
+- Metadata/tag matching is strongly preferred because broad `q` search in PandaDoc can be slower and less deterministic.
 - PandaDoc search filters can vary by account and API version behavior; metadata-based matching should be validated in your tenant.
 - If historical documents lack Deal metadata, fallback text query may over/under-match.
 - Currency is currently formatted as USD in UI per requirement; mixed-currency docs are not converted.

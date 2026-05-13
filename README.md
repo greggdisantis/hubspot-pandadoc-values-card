@@ -65,8 +65,8 @@ The backend tries these in order:
 ## Files changed
 
 - `hsproject.json`
-- `src/app/extensions/PandaDocDocumentValuesCard.jsx`
-- `src/app/app.functions/getPandaDocDocuments.js`
+- `src/app/cards/PandaDocDocumentValuesCard.jsx`
+- `src/app/functions/getPandaDocDocuments.js`
 - `.env.example`
 - `README.md`
 

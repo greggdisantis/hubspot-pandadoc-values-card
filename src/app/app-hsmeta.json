@@ -4,8 +4,17 @@
   "config": {
     "name": "PandaDoc Document Values",
     "description": "Read-only Deal card showing related PandaDoc document values.",
+    "distribution": "private",
     "auth": {
-      "type": "private"
+      "type": "static",
+      "requiredScopes": ["crm.objects.deals.read", "crm.schemas.deals.read"],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": ["https://api.pandadoc.com", "https://api.hubapi.com"],
+      "iframe": [],
+      "img": []
     }
   }
 }

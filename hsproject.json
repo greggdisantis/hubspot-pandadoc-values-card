@@ -1,0 +1,19 @@
+{
+  "name": "hubspot-pandadoc-values-card",
+  "srcDir": "src",
+  "platformVersion": "2026.03",
+  "extensions": [
+    {
+      "file": "app/extensions/PandaDocDocumentValuesCard.jsx",
+      "uid": "pandadoc-document-values-card",
+      "objectTypes": [{ "name": "deals" }],
+      "location": "crm.record.tab"
+    }
+  ],
+  "serverlessFunctions": [
+    {
+      "file": "app/app.functions/getPandaDocDocuments.js",
+      "id": "getPandaDocDocuments"
+    }
+  ]
+}

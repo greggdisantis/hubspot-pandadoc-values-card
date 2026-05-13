@@ -1,0 +1,11 @@
+{
+  "uid": "pandadoc-values-app",
+  "type": "app",
+  "config": {
+    "name": "PandaDoc Document Values",
+    "description": "Read-only Deal card showing related PandaDoc document values.",
+    "auth": {
+      "type": "private"
+    }
+  }
+}

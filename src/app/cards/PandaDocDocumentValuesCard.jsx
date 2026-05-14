@@ -138,13 +138,14 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
           {documents.map((doc, index) => {
             return (
               <Box key={String(doc?.id || doc?.name || index || 'doc')}>
-                <Text>{`${index + 1}. ${doc?.name || '—'}`}</Text>
+                <Text>{`${index + 1}. `}<strong>{doc?.name || '—'}</strong></Text>
                 <Box>
-                  <Text>    Status: {doc?.status || '—'}</Text>
-                  <Text>    Value: {formatUsd(doc?.value)}</Text>
-                  <Text>    Created: {formatDate(doc?.createdAt)}</Text>
-                  <Text>    Owner: {doc?.createdBy || '—'}</Text>
+                  <Text>{`   • Status: ${doc?.status || '—'}`}</Text>
+                  <Text>{`   • Value: ${formatUsd(doc?.value)}`}</Text>
+                  <Text>{`   • Created: ${formatDate(doc?.createdAt)}`}</Text>
+                  <Text>{`   • Owner: ${doc?.createdBy || '—'}`}</Text>
                 </Box>
+                {index < documents.length - 1 && <Divider />}
               </Box>
             );
           })}

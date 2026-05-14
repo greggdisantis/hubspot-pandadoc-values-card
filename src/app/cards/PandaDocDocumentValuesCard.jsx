@@ -5,12 +5,6 @@ import {
   Divider,
   Flex,
   LoadingSpinner,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Text,
 } from '@hubspot/ui-extensions';
 
@@ -142,28 +136,17 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
         <Text>Overall total: {formatUsd(totals.overall)}</Text>
       </Box>
       <Divider />
-      <Table compact>
-        <TableHead>
-          <TableRow>
-            <TableHeader>Name</TableHeader>
-            <TableHeader>Status</TableHeader>
-            <TableHeader>Value</TableHeader>
-            <TableHeader>Created</TableHeader>
-            <TableHeader>Owner</TableHeader>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {documents.map((doc) => (
-            <TableRow key={String(doc?.id || doc?.name || Math.random())}>
-              <TableCell>{doc?.name || '—'}</TableCell>
-              <TableCell>{doc?.status || '—'}</TableCell>
-              <TableCell>{formatUsd(doc?.value)}</TableCell>
-              <TableCell>{formatDate(doc?.createdAt)}</TableCell>
-              <TableCell>{doc?.createdBy || '—'}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <Flex direction="column" gap="xs">
+        {documents.map((doc) => (
+          <Box key={String(doc?.id || doc?.name || 'doc')}>
+            <Text>{doc?.name || '—'}</Text>
+            <Text>Status: {doc?.status || '—'}</Text>
+            <Text>Value: {formatUsd(doc?.value)}</Text>
+            <Text>Created: {formatDate(doc?.createdAt)}</Text>
+            <Text>Owner: {doc?.createdBy || '—'}</Text>
+          </Box>
+        ))}
+      </Flex>
     </Flex>
   );
 }

@@ -2,10 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   hubspot,
   Box,
-  Button,
   Divider,
   Flex,
-  Link,
   LoadingSpinner,
   Table,
   TableBody,
@@ -22,18 +20,28 @@ const STATUS_GROUPS = {
   completedSigned: new Set(['document.completed', 'document.paid']),
 };
 
+const emptyPayload = { documents: [], totals: {}, debug: {} };
+
+const isRecord = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
 const normalizeServerlessPayload = (raw) => {
-  const payload = raw?.response?.body || raw?.response || raw?.body || raw || {};
-  return {
-    documents: Array.isArray(payload.documents) ? payload.documents : [],
-    totals: payload?.totals || {},
-    debug: payload?.debug || {},
-  };
+  try {
+    const payload = raw?.response?.body ?? raw?.response ?? raw?.body ?? raw ?? {};
+    const safePayload = isRecord(payload) ? payload : {};
+    return {
+      documents: Array.isArray(safePayload.documents) ? safePayload.documents : [],
+      totals: isRecord(safePayload.totals) ? safePayload.totals : {},
+      debug: isRecord(safePayload.debug) ? safePayload.debug : {},
+    };
+  } catch {
+    return emptyPayload;
+  }
 };
 
 const formatUsd = (value) => {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(value));
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(numeric);
 };
 
 const formatDate = (value) => {
@@ -47,29 +55,37 @@ hubspot.extend(({ context, runServerlessFunction }) => <PandaDocDocumentValuesCa
 
 function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   const dealId = context?.crm?.objectId || context?.crm?.properties?.hs_object_id;
-  const [state, setState] = useState({ loading: true, error: null, data: { documents: [], totals: {}, debug: {} } });
+  const [state, setState] = useState({ loading: true, error: null, data: emptyPayload });
 
   useEffect(() => {
     let isMounted = true;
 
     const load = async () => {
       if (!dealId) {
-        if (isMounted) setState({ loading: false, error: 'No HubSpot Deal ID found in context.', data: { documents: [], totals: {}, debug: {} } });
+        if (isMounted) setState({ loading: false, error: 'No HubSpot Deal ID found in context.', data: emptyPayload });
         return;
       }
 
-      setState({ loading: true, error: null, data: { documents: [], totals: {}, debug: {} } });
-      const response = await runServerlessFunction({
-        name: 'getPandaDocDocuments',
-        parameters: { dealId: String(dealId) },
-      });
+      setState({ loading: true, error: null, data: emptyPayload });
 
-      if (!isMounted) return;
+      try {
+        const response = await runServerlessFunction({
+          name: 'getPandaDocDocuments',
+          parameters: { dealId: String(dealId) },
+        });
 
-      if (response?.status === 'ERROR') {
-        setState({ loading: false, error: response?.message || 'Unable to reach PandaDoc.', data: { documents: [], totals: {}, debug: {} } });
-      } else {
-        setState({ loading: false, error: null, data: normalizeServerlessPayload(response) });
+        if (!isMounted) return;
+
+        if (response?.status === 'ERROR') {
+          setState({ loading: false, error: response?.message || 'Unable to load serverless response.', data: emptyPayload });
+          return;
+        }
+
+        const normalized = normalizeServerlessPayload(response);
+        setState({ loading: false, error: null, data: normalized });
+      } catch {
+        if (!isMounted) return;
+        setState({ loading: false, error: 'Card failed to parse serverless response.', data: emptyPayload });
       }
     };
 
@@ -79,19 +95,19 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
     };
   }, [dealId, runServerlessFunction]);
 
-  const documents = state.data?.documents || [];
-  const debug = state.data?.debug || {};
+  const documents = Array.isArray(state.data?.documents) ? state.data.documents : [];
 
   const totals = useMemo(() => {
-    if (state.data?.totals && Object.keys(state.data.totals).length) return state.data.totals;
+    if (isRecord(state.data?.totals) && Object.keys(state.data.totals).length > 0) return state.data.totals;
 
     return documents.reduce(
       (acc, doc) => {
-        const v = Number(doc.value) || 0;
-        acc.overall += v;
-        if (STATUS_GROUPS.draft.has(doc.status)) acc.draft += v;
-        if (STATUS_GROUPS.sentViewed.has(doc.status)) acc.sentViewed += v;
-        if (STATUS_GROUPS.completedSigned.has(doc.status)) acc.completedSigned += v;
+        const v = Number(doc?.value);
+        const amount = Number.isFinite(v) ? v : 0;
+        acc.overall += amount;
+        if (STATUS_GROUPS.draft.has(doc?.status)) acc.draft += amount;
+        if (STATUS_GROUPS.sentViewed.has(doc?.status)) acc.sentViewed += amount;
+        if (STATUS_GROUPS.completedSigned.has(doc?.status)) acc.completedSigned += amount;
         return acc;
       },
       { draft: 0, sentViewed: 0, completedSigned: 0, overall: 0 },
@@ -110,7 +126,7 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   if (state.error) {
     return (
       <Box>
-        <Text format={{ color: 'danger' }}>Error: {state.error}</Text>
+        <Text>Error: {state.error}</Text>
       </Box>
     );
   }
@@ -119,18 +135,11 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
 
   return (
     <Flex direction="column" gap="small">
-      {debug?.diagnosticMode && (
-        <Box>
-          <Text><strong>Diagnostic mode:</strong> true</Text>
-          <Text><strong>Received Deal ID:</strong> {String(debug.receivedDealId || '—')}</Text>
-          <Text><strong>Timestamp:</strong> {String(debug.timestamp || '—')}</Text>
-        </Box>
-      )}
       <Box>
-        <Text><strong>Draft total:</strong> {formatUsd(totals.draft)}</Text>
-        <Text><strong>Sent/viewed total:</strong> {formatUsd(totals.sentViewed)}</Text>
-        <Text><strong>Completed/signed total:</strong> {formatUsd(totals.completedSigned)}</Text>
-        <Text><strong>Overall total:</strong> {formatUsd(totals.overall)}</Text>
+        <Text>Draft total: {formatUsd(totals.draft)}</Text>
+        <Text>Sent/viewed total: {formatUsd(totals.sentViewed)}</Text>
+        <Text>Completed/signed total: {formatUsd(totals.completedSigned)}</Text>
+        <Text>Overall total: {formatUsd(totals.overall)}</Text>
       </Box>
       <Divider />
       <Table compact>
@@ -145,21 +154,16 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
         </TableHead>
         <TableBody>
           {documents.map((doc) => (
-            <TableRow key={doc.id}>
-              <TableCell>{doc.url ? <Link href={doc.url}>{doc.name}</Link> : doc.name}</TableCell>
-              <TableCell>{doc.status || '—'}</TableCell>
-              <TableCell>{formatUsd(doc.value)}</TableCell>
-              <TableCell>{formatDate(doc.createdAt)}</TableCell>
-              <TableCell>{doc.createdBy || '—'}</TableCell>
+            <TableRow key={String(doc?.id || doc?.name || Math.random())}>
+              <TableCell>{doc?.name || '—'}</TableCell>
+              <TableCell>{doc?.status || '—'}</TableCell>
+              <TableCell>{formatUsd(doc?.value)}</TableCell>
+              <TableCell>{formatDate(doc?.createdAt)}</TableCell>
+              <TableCell>{doc?.createdBy || '—'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      {documents[0]?.url && (
-        <Button href={documents[0].url} size="small" variant="secondary">
-          Open latest PandaDoc document
-        </Button>
-      )}
     </Flex>
   );
 }

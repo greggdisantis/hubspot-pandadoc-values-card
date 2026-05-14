@@ -132,6 +132,20 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
 
       <Divider />
 
+      {!documents.length && Array.isArray(state.data?.debug?.sampleDocuments) && (
+        <Box>
+          <Text>Diagnostic Deal ID: {String(state.data?.debug?.currentDealId || '—')}</Text>
+          <Text>Scanned docs: {String(state.data?.debug?.scannedDocumentCount ?? '—')}</Text>
+          <Text>Detail successes: {String(state.data?.debug?.detailSuccesses ?? '—')}</Text>
+          <Text>Detail failures: {String(state.data?.debug?.detailFailures ?? '—')}</Text>
+          {state.data.debug.sampleDocuments.map((d, idx) => (
+            <Box key={`diag-${idx}`}>
+              <Text>{d?.name || '—'} ({d?.matchResult ? 'match' : 'no-match'})</Text>
+              <Text>Candidate IDs: {Object.keys(d?.candidateDealIds || {}).map((k) => `${k}:${d.candidateDealIds[k]}`).join(', ') || 'none'}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
       {!documents.length ? (
         <Text>No PandaDoc documents found.</Text>
       ) : (

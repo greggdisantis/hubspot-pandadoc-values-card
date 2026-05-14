@@ -3,6 +3,7 @@ const LIST_TIMEOUT_MS = 8000;
 const DETAIL_TIMEOUT_MS = 5000;
 const MAX_DOCUMENTS = 50;
 const MATCH_FIELDS_CHECKED = ['metadata.hubspot.deal_id', 'Deal.DealID', 'Deal.HsObjectId', 'Deal.PandaDocMirrorJobId'];
+const CANDIDATE_KEYS = ['Deal.DealID', 'Deal.HsObjectId', 'Deal.PandaDocMirrorJobId'];
 
 const mapStatusGroup = (status) => {
   if (['document.draft'].includes(status)) return 'draft';
@@ -19,6 +20,8 @@ const toNumberOrNull = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const normStr = (v) => String(v ?? '').trim();
+
 const getTokenVariableValue = (doc, keyName) => {
   const keyLc = String(keyName).toLowerCase();
   for (const pool of [doc?.tokens, doc?.variables]) {
@@ -33,6 +36,29 @@ const getTokenVariableValue = (doc, keyName) => {
     }
   }
   return null;
+};
+
+const getTokenNamesFiltered = (doc) => {
+  const out = [];
+  const match = /(deal|hsobjectid|hubspot|pandadoc|document\.value)/i;
+  const add = (n) => {
+    const name = String(n || '');
+    if (!name || !match.test(name)) return;
+    if (out.includes(name)) return;
+    if (out.length >= 10) return;
+    out.push(name);
+  };
+
+  for (const pool of [doc?.tokens, doc?.variables]) {
+    if (!pool) continue;
+    if (Array.isArray(pool)) {
+      for (const t of pool) add(t?.name || t?.key);
+    } else if (typeof pool === 'object') {
+      Object.keys(pool).forEach(add);
+    }
+  }
+
+  return out;
 };
 
 const extractValue = (doc) => {
@@ -61,7 +87,6 @@ const extractValue = (doc) => {
 
 const normalizeCreatedBy = (doc) => doc?.owner?.email || ((doc?.owner?.first_name || doc?.owner?.last_name) ? `${doc.owner.first_name || ''} ${doc.owner.last_name || ''}`.trim() : null) || doc?.created_by?.email || null;
 const buildDocUrl = (id) => (id ? `https://app.pandadoc.com/a/#/documents/${id}` : null);
-const normStr = (v) => String(v ?? '').trim();
 
 const fetchWithTimeout = async (url, options, timeoutMs) => {
   const controller = new AbortController();
@@ -90,8 +115,7 @@ exports.main = async (context = {}) => {
     if (!apiKey) return { statusCode: 500, body: { message: 'Missing PANDADOC_API_KEY secret.' } };
 
     const headers = { Authorization: `API-Key ${apiKey}`, 'Content-Type': 'application/json' };
-    const listUrl = `${PANDADOC_BASE_URL}/documents?count=${MAX_DOCUMENTS}`;
-    const listResult = await fetchWithTimeout(listUrl, { method: 'GET', headers }, LIST_TIMEOUT_MS);
+    const listResult = await fetchWithTimeout(`${PANDADOC_BASE_URL}/documents?count=${MAX_DOCUMENTS}`, { method: 'GET', headers }, LIST_TIMEOUT_MS);
     timedOut ||= listResult.timedOut;
 
     if (!listResult.response || !listResult.response.ok) {
@@ -141,13 +165,15 @@ exports.main = async (context = {}) => {
 
     const scannedDocs = settled.map((r, idx) => (r.status === 'fulfilled' ? r.value : listDocs[idx]));
 
-    const matchedDocs = scannedDocs.filter((doc) => {
+    const matchDoc = (doc) => {
       const byMetadata = normStr(doc?.metadata?.['hubspot.deal_id']) === dealId;
       const byDealId = normStr(getTokenVariableValue(doc, 'Deal.DealID')) === dealId;
       const byHsId = normStr(getTokenVariableValue(doc, 'Deal.HsObjectId')) === dealId;
       const byMirrorId = normStr(getTokenVariableValue(doc, 'Deal.PandaDocMirrorJobId')) === dealId;
       return byMetadata || byDealId || byHsId || byMirrorId;
-    });
+    };
+
+    const matchedDocs = scannedDocs.filter(matchDoc);
 
     const documents = matchedDocs.map((doc) => ({
       id: doc?.id || null,
@@ -171,22 +197,40 @@ exports.main = async (context = {}) => {
       { draft: 0, sentViewed: 0, completedSigned: 0, overall: 0 },
     );
 
-    return {
-      statusCode: 200,
-      body: {
-        documents,
-        totals,
-        debug: {
-          pandaDocMode: 'manual-token-or-metadata-match',
-          scannedDocumentCount: scannedDocs.length,
-          matchedDocumentCount: documents.length,
-          detailSuccesses,
-          detailFailures,
-          timedOut,
-          matchFieldsChecked: MATCH_FIELDS_CHECKED,
-        },
-      },
+    const debug = {
+      pandaDocMode: 'manual-token-or-metadata-match',
+      scannedDocumentCount: scannedDocs.length,
+      matchedDocumentCount: documents.length,
+      detailSuccesses,
+      detailFailures,
+      timedOut,
+      matchFieldsChecked: MATCH_FIELDS_CHECKED,
     };
+
+    if (documents.length === 0) {
+      debug.currentDealId = dealId;
+      debug.sampleDocuments = scannedDocs.slice(0, 15).map((doc) => {
+        const candidateDealIds = {};
+        CANDIDATE_KEYS.forEach((k) => {
+          const v = normStr(getTokenVariableValue(doc, k));
+          if (v) candidateDealIds[k] = v;
+        });
+        const metadataHubspotDealId = normStr(doc?.metadata?.['hubspot.deal_id']);
+
+        return {
+          name: doc?.name || null,
+          status: doc?.status || null,
+          createdAt: doc?.date_created || doc?.created_at || null,
+          metadataKeys: doc?.metadata && typeof doc.metadata === 'object' ? Object.keys(doc.metadata).slice(0, 15) : [],
+          metadataHubspotDealId: metadataHubspotDealId || null,
+          candidateDealIds,
+          tokenNamesSample: getTokenNamesFiltered(doc),
+          matchResult: matchDoc(doc),
+        };
+      });
+    }
+
+    return { statusCode: 200, body: { documents, totals, debug } };
   } catch (error) {
     return {
       statusCode: 502,

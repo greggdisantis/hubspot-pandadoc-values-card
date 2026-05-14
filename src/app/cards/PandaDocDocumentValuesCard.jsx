@@ -169,6 +169,17 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
                 <Text>Debug tokenNamesSample: {formatList(d.tokenNamesSample)}</Text>
                 <Text>Debug linkedObjectKeys: {formatList(d.linkedObjectKeys)}</Text>
                 <Text>Debug metadataKeys: {formatList(d.metadataKeys)}</Text>
+                <Text>Debug grandTotalType: {String(d.grandTotalType || '—')}</Text>
+                <Text>Debug grandTotalKeys: {formatList(d.grandTotalKeys)}</Text>
+                <Text>Debug grandTotalValueCandidates: {JSON.stringify(d.grandTotalValueCandidates || {})}</Text>
+                <Text>Debug pricingType: {String(d.pricingType || '—')}</Text>
+                <Text>Debug pricingKeys: {formatList(d.pricingKeys)}</Text>
+                <Text>Debug pricingGrandTotalType: {String(d.pricingGrandTotalType || '—')}</Text>
+                <Text>Debug pricingGrandTotalKeys: {formatList(d.pricingGrandTotalKeys)}</Text>
+                <Text>Debug pricingTotalsType: {String(d.pricingTotalsType || '—')}</Text>
+                <Text>Debug pricingTotalsKeys: {formatList(d.pricingTotalsKeys)}</Text>
+                <Text>Debug pricingTotalsGrandTotalType: {String(d.pricingTotalsGrandTotalType || '—')}</Text>
+                <Text>Debug pricingTotalsGrandTotalKeys: {formatList(d.pricingTotalsGrandTotalKeys)}</Text>
               </Box>
             );
           })}

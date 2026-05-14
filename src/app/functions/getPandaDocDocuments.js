@@ -1,7 +1,7 @@
 const PANDADOC_BASE_URL = 'https://api.pandadoc.com/public/v1';
 const LIST_TIMEOUT_MS = 8000;
 const DETAIL_TIMEOUT_MS = 5000;
-const MAX_DOCUMENTS = 10;
+const MAX_DOCUMENTS = 50;
 
 const mapStatusGroup = (status) => {
   if (['document.draft'].includes(status)) return 'draft';
@@ -32,12 +32,10 @@ const extractValue = (doc) => {
     doc?.pricing?.totals?.grand_total?.value,
     doc?.pricing?.totals?.grand_total?.total,
   ];
-
   for (const c of candidates) {
     const n = toNumberOrNull(c);
     if (n !== null) return n;
   }
-
   return null;
 };
 
@@ -71,8 +69,9 @@ exports.main = async (context = {}) => {
     if (!apiKey) return { statusCode: 500, body: { message: 'Missing PANDADOC_API_KEY secret.' } };
 
     const headers = { Authorization: `API-Key ${apiKey}`, 'Content-Type': 'application/json' };
-    const listUrl = `${PANDADOC_BASE_URL}/documents?metadata.hubspot.deal_id=${encodeURIComponent(dealId)}&count=${MAX_DOCUMENTS}`;
 
+    // Do not trust API-side metadata filtering alone; fetch a bounded set then filter locally by metadata.
+    const listUrl = `${PANDADOC_BASE_URL}/documents?count=${MAX_DOCUMENTS}`;
     const listResult = await fetchWithTimeout(listUrl, { method: 'GET', headers }, LIST_TIMEOUT_MS);
     timedOut ||= listResult.timedOut;
 
@@ -83,13 +82,12 @@ exports.main = async (context = {}) => {
           documents: [],
           totals: { draft: 0, sentViewed: 0, completedSigned: 0, overall: 0 },
           debug: {
-            pandaDocMode: 'deal-metadata-match',
-            documentCount: 0,
+            pandaDocMode: 'manual-metadata-filter',
+            scannedDocumentCount: 0,
+            matchedDocumentCount: 0,
             detailSuccesses,
             detailFailures,
             timedOut,
-            valueFoundCount: 0,
-            valueMissingCount: 0,
             matchField: 'metadata.hubspot.deal_id',
           },
         },
@@ -122,9 +120,14 @@ exports.main = async (context = {}) => {
       }),
     );
 
-    const mergedDocs = settled.map((r, idx) => (r.status === 'fulfilled' ? r.value : listDocs[idx]));
+    const scannedDocs = settled.map((r, idx) => (r.status === 'fulfilled' ? r.value : listDocs[idx]));
 
-    const documents = mergedDocs.map((doc) => ({
+    const matchedDocs = scannedDocs.filter((doc) => {
+      const metadataDealId = String(doc?.metadata?.['hubspot.deal_id'] ?? '').trim();
+      return metadataDealId && metadataDealId === dealId;
+    });
+
+    const documents = matchedDocs.map((doc) => ({
       id: doc?.id || null,
       name: doc?.name || null,
       status: doc?.status || null,
@@ -146,21 +149,18 @@ exports.main = async (context = {}) => {
       { draft: 0, sentViewed: 0, completedSigned: 0, overall: 0 },
     );
 
-    const valueFoundCount = documents.filter((d) => d.value !== null).length;
-
     return {
       statusCode: 200,
       body: {
         documents,
         totals,
         debug: {
-          pandaDocMode: 'deal-metadata-match',
-          documentCount: documents.length,
+          pandaDocMode: 'manual-metadata-filter',
+          scannedDocumentCount: scannedDocs.length,
+          matchedDocumentCount: documents.length,
           detailSuccesses,
           detailFailures,
           timedOut,
-          valueFoundCount,
-          valueMissingCount: documents.length - valueFoundCount,
           matchField: 'metadata.hubspot.deal_id',
         },
       },
@@ -172,13 +172,12 @@ exports.main = async (context = {}) => {
         message: 'Unable to reach PandaDoc API.',
         error: error?.message || 'Unknown error',
         debug: {
-          pandaDocMode: 'deal-metadata-match',
-          documentCount: 0,
+          pandaDocMode: 'manual-metadata-filter',
+          scannedDocumentCount: 0,
+          matchedDocumentCount: 0,
           detailSuccesses,
           detailFailures,
           timedOut,
-          valueFoundCount: 0,
-          valueMissingCount: 0,
           matchField: 'metadata.hubspot.deal_id',
         },
       },

@@ -44,8 +44,6 @@ const formatDate = (value) => {
   return d.toLocaleDateString('en-US');
 };
 
-const formatList = (v) => (Array.isArray(v) ? (v.length ? v.join(', ') : '[]') : '[]');
-
 hubspot.extend(({ context, runServerlessFunction }) => <PandaDocDocumentValuesCard context={context} runServerlessFunction={runServerlessFunction} />);
 
 function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
@@ -90,8 +88,6 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   }, [dealId, runServerlessFunction]);
 
   const documents = Array.isArray(state.data?.documents) ? state.data.documents : [];
-  const topDebug = isRecord(state.data?.debug) ? state.data.debug : {};
-
   const totals = useMemo(() => {
     if (isRecord(state.data?.totals) && Object.keys(state.data.totals).length > 0) return state.data.totals;
     return documents.reduce(
@@ -134,16 +130,6 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
         <Text>Overall total: {formatUsd(totals.overall)}</Text>
       </Box>
 
-      <Box>
-        <Text>Debug mode: {String(topDebug.pandaDocMode || '—')}</Text>
-        <Text>Debug documentCount: {String(topDebug.documentCount ?? '—')}</Text>
-        <Text>Debug detailSuccesses: {String(topDebug.detailSuccesses ?? '—')}</Text>
-        <Text>Debug detailFailures: {String(topDebug.detailFailures ?? '—')}</Text>
-        <Text>Debug valueFoundCount: {String(topDebug.valueFoundCount ?? '—')}</Text>
-        <Text>Debug valueMissingCount: {String(topDebug.valueMissingCount ?? '—')}</Text>
-        <Text>Debug timedOut: {String(topDebug.timedOut ?? '—')}</Text>
-      </Box>
-
       <Divider />
 
       {!documents.length ? (
@@ -151,7 +137,6 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
       ) : (
         <Flex direction="column" gap="xs">
           {documents.map((doc) => {
-            const d = isRecord(doc?.debug) ? doc.debug : {};
             return (
               <Box key={String(doc?.id || doc?.name || 'doc')}>
                 <Text>{doc?.name || '—'}</Text>
@@ -159,27 +144,6 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
                 <Text>Value: {formatUsd(doc?.value)}</Text>
                 <Text>Created: {formatDate(doc?.createdAt)}</Text>
                 <Text>Owner: {doc?.createdBy || '—'}</Text>
-                <Text>Debug valueSourceUsed: {String(d.valueSourceUsed || '—')}</Text>
-                <Text>Debug checkedValueFields: {formatList(d.checkedValueFields)}</Text>
-                <Text>Debug hasValueField: {String(d.hasValueField ?? '—')}</Text>
-                <Text>Debug hasGrandTotalField: {String(d.hasGrandTotalField ?? '—')}</Text>
-                <Text>Debug hasPricingField: {String(d.hasPricingField ?? '—')}</Text>
-                <Text>Debug hasTokens: {String(d.hasTokens ?? '—')}</Text>
-                <Text>Debug hasVariables: {String(d.hasVariables ?? '—')}</Text>
-                <Text>Debug tokenNamesSample: {formatList(d.tokenNamesSample)}</Text>
-                <Text>Debug linkedObjectKeys: {formatList(d.linkedObjectKeys)}</Text>
-                <Text>Debug metadataKeys: {formatList(d.metadataKeys)}</Text>
-                <Text>Debug grandTotalType: {String(d.grandTotalType || '—')}</Text>
-                <Text>Debug grandTotalKeys: {formatList(d.grandTotalKeys)}</Text>
-                <Text>Debug grandTotalValueCandidates: {JSON.stringify(d.grandTotalValueCandidates || {})}</Text>
-                <Text>Debug pricingType: {String(d.pricingType || '—')}</Text>
-                <Text>Debug pricingKeys: {formatList(d.pricingKeys)}</Text>
-                <Text>Debug pricingGrandTotalType: {String(d.pricingGrandTotalType || '—')}</Text>
-                <Text>Debug pricingGrandTotalKeys: {formatList(d.pricingGrandTotalKeys)}</Text>
-                <Text>Debug pricingTotalsType: {String(d.pricingTotalsType || '—')}</Text>
-                <Text>Debug pricingTotalsKeys: {formatList(d.pricingTotalsKeys)}</Text>
-                <Text>Debug pricingTotalsGrandTotalType: {String(d.pricingTotalsGrandTotalType || '—')}</Text>
-                <Text>Debug pricingTotalsGrandTotalKeys: {formatList(d.pricingTotalsGrandTotalKeys)}</Text>
               </Box>
             );
           })}

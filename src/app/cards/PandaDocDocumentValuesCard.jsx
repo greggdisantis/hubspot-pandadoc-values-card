@@ -125,25 +125,25 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
     <Flex direction="column" gap="small">
       <Box>
         <Text>Total # of Documents: {documents.length}</Text>
+        <Text>Completed/signed total: {formatUsd(totals.completedSigned)}</Text>
         <Text>Draft total: {formatUsd(totals.draft)}</Text>
         <Text>Sent/viewed total: {formatUsd(totals.sentViewed)}</Text>
-        <Text>Completed/signed total: {formatUsd(totals.completedSigned)}</Text>
       </Box>
 
       <Divider />
       {!documents.length ? (
         <Text>No PandaDoc documents found.</Text>
       ) : (
-        <Flex direction="column" gap="xs">
+        <Flex direction="column" gap="small">
           {documents.map((doc, index) => {
             return (
               <Box key={String(doc?.id || doc?.name || index || 'doc')}>
                 <Text>{`${index + 1}. ${doc?.name || '—'}`}</Text>
                 <Box>
-                  <Text>  Status: {doc?.status || '—'}</Text>
-                  <Text>  Value: {formatUsd(doc?.value)}</Text>
-                  <Text>  Created: {formatDate(doc?.createdAt)}</Text>
-                  <Text>  Owner: {doc?.createdBy || '—'}</Text>
+                  <Text>    Status: {doc?.status || '—'}</Text>
+                  <Text>    Value: {formatUsd(doc?.value)}</Text>
+                  <Text>    Created: {formatDate(doc?.createdAt)}</Text>
+                  <Text>    Owner: {doc?.createdBy || '—'}</Text>
                 </Box>
               </Box>
             );

@@ -124,40 +124,27 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   return (
     <Flex direction="column" gap="small">
       <Box>
+        <Text>Total # of Documents: {documents.length}</Text>
         <Text>Draft total: {formatUsd(totals.draft)}</Text>
         <Text>Sent/viewed total: {formatUsd(totals.sentViewed)}</Text>
         <Text>Completed/signed total: {formatUsd(totals.completedSigned)}</Text>
-        <Text>Overall total: {formatUsd(totals.overall)}</Text>
       </Box>
 
       <Divider />
-
-      {!documents.length && Array.isArray(state.data?.debug?.sampleDocuments) && (
-        <Box>
-          <Text>Diagnostic Deal ID: {String(state.data?.debug?.currentDealId || '—')}</Text>
-          <Text>Scanned docs: {String(state.data?.debug?.scannedDocumentCount ?? '—')}</Text>
-          <Text>Detail successes: {String(state.data?.debug?.detailSuccesses ?? '—')}</Text>
-          <Text>Detail failures: {String(state.data?.debug?.detailFailures ?? '—')}</Text>
-          {state.data.debug.sampleDocuments.map((d, idx) => (
-            <Box key={`diag-${idx}`}>
-              <Text>{d?.name || '—'} ({d?.matchResult ? 'match' : 'no-match'})</Text>
-              <Text>Candidate IDs: {Object.keys(d?.candidateDealIds || {}).map((k) => `${k}:${d.candidateDealIds[k]}`).join(', ') || 'none'}</Text>
-            </Box>
-          ))}
-        </Box>
-      )}
       {!documents.length ? (
         <Text>No PandaDoc documents found.</Text>
       ) : (
         <Flex direction="column" gap="xs">
-          {documents.map((doc) => {
+          {documents.map((doc, index) => {
             return (
-              <Box key={String(doc?.id || doc?.name || 'doc')}>
-                <Text>{doc?.name || '—'}</Text>
-                <Text>Status: {doc?.status || '—'}</Text>
-                <Text>Value: {formatUsd(doc?.value)}</Text>
-                <Text>Created: {formatDate(doc?.createdAt)}</Text>
-                <Text>Owner: {doc?.createdBy || '—'}</Text>
+              <Box key={String(doc?.id || doc?.name || index || 'doc')}>
+                <Text>{`${index + 1}. ${doc?.name || '—'}`}</Text>
+                <Box>
+                  <Text>  Status: {doc?.status || '—'}</Text>
+                  <Text>  Value: {formatUsd(doc?.value)}</Text>
+                  <Text>  Created: {formatDate(doc?.createdAt)}</Text>
+                  <Text>  Owner: {doc?.createdBy || '—'}</Text>
+                </Box>
               </Box>
             );
           })}

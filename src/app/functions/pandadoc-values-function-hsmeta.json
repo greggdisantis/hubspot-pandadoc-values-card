@@ -1,0 +1,8 @@
+{
+  "uid": "getPandaDocDocuments",
+  "type": "app-function",
+  "config": {
+    "entrypoint": "/app/functions/getPandaDocDocuments.js",
+    "secretKeys": ["PANDADOC_API_KEY"]
+  }
+}

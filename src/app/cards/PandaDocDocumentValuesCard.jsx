@@ -15,7 +15,6 @@ const STATUS_GROUPS = {
 };
 
 const emptyPayload = { documents: [], totals: {}, debug: {} };
-
 const isRecord = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 const normalizeServerlessPayload = (raw) => {
@@ -44,6 +43,8 @@ const formatDate = (value) => {
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US');
 };
+
+const formatList = (v) => (Array.isArray(v) ? (v.length ? v.join(', ') : '[]') : '[]');
 
 hubspot.extend(({ context, runServerlessFunction }) => <PandaDocDocumentValuesCard context={context} runServerlessFunction={runServerlessFunction} />);
 
@@ -75,8 +76,7 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
           return;
         }
 
-        const normalized = normalizeServerlessPayload(response);
-        setState({ loading: false, error: null, data: normalized });
+        setState({ loading: false, error: null, data: normalizeServerlessPayload(response) });
       } catch {
         if (!isMounted) return;
         setState({ loading: false, error: 'Card failed to parse serverless response.', data: emptyPayload });
@@ -90,18 +90,18 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   }, [dealId, runServerlessFunction]);
 
   const documents = Array.isArray(state.data?.documents) ? state.data.documents : [];
+  const topDebug = isRecord(state.data?.debug) ? state.data.debug : {};
 
   const totals = useMemo(() => {
     if (isRecord(state.data?.totals) && Object.keys(state.data.totals).length > 0) return state.data.totals;
-
     return documents.reduce(
       (acc, doc) => {
         const v = Number(doc?.value);
-        const amount = Number.isFinite(v) ? v : 0;
-        acc.overall += amount;
-        if (STATUS_GROUPS.draft.has(doc?.status)) acc.draft += amount;
-        if (STATUS_GROUPS.sentViewed.has(doc?.status)) acc.sentViewed += amount;
-        if (STATUS_GROUPS.completedSigned.has(doc?.status)) acc.completedSigned += amount;
+        if (!Number.isFinite(v)) return acc;
+        acc.overall += v;
+        if (STATUS_GROUPS.draft.has(doc?.status)) acc.draft += v;
+        if (STATUS_GROUPS.sentViewed.has(doc?.status)) acc.sentViewed += v;
+        if (STATUS_GROUPS.completedSigned.has(doc?.status)) acc.completedSigned += v;
         return acc;
       },
       { draft: 0, sentViewed: 0, completedSigned: 0, overall: 0 },
@@ -125,8 +125,6 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
     );
   }
 
-  if (!documents.length) return <Text>No PandaDoc documents found.</Text>;
-
   return (
     <Flex direction="column" gap="small">
       <Box>
@@ -135,18 +133,47 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
         <Text>Completed/signed total: {formatUsd(totals.completedSigned)}</Text>
         <Text>Overall total: {formatUsd(totals.overall)}</Text>
       </Box>
+
+      <Box>
+        <Text>Debug mode: {String(topDebug.pandaDocMode || '—')}</Text>
+        <Text>Debug documentCount: {String(topDebug.documentCount ?? '—')}</Text>
+        <Text>Debug detailSuccesses: {String(topDebug.detailSuccesses ?? '—')}</Text>
+        <Text>Debug detailFailures: {String(topDebug.detailFailures ?? '—')}</Text>
+        <Text>Debug valueFoundCount: {String(topDebug.valueFoundCount ?? '—')}</Text>
+        <Text>Debug valueMissingCount: {String(topDebug.valueMissingCount ?? '—')}</Text>
+        <Text>Debug timedOut: {String(topDebug.timedOut ?? '—')}</Text>
+      </Box>
+
       <Divider />
-      <Flex direction="column" gap="xs">
-        {documents.map((doc) => (
-          <Box key={String(doc?.id || doc?.name || 'doc')}>
-            <Text>{doc?.name || '—'}</Text>
-            <Text>Status: {doc?.status || '—'}</Text>
-            <Text>Value: {formatUsd(doc?.value)}</Text>
-            <Text>Created: {formatDate(doc?.createdAt)}</Text>
-            <Text>Owner: {doc?.createdBy || '—'}</Text>
-          </Box>
-        ))}
-      </Flex>
+
+      {!documents.length ? (
+        <Text>No PandaDoc documents found.</Text>
+      ) : (
+        <Flex direction="column" gap="xs">
+          {documents.map((doc) => {
+            const d = isRecord(doc?.debug) ? doc.debug : {};
+            return (
+              <Box key={String(doc?.id || doc?.name || 'doc')}>
+                <Text>{doc?.name || '—'}</Text>
+                <Text>Status: {doc?.status || '—'}</Text>
+                <Text>Value: {formatUsd(doc?.value)}</Text>
+                <Text>Created: {formatDate(doc?.createdAt)}</Text>
+                <Text>Owner: {doc?.createdBy || '—'}</Text>
+                <Text>Debug valueSourceUsed: {String(d.valueSourceUsed || '—')}</Text>
+                <Text>Debug checkedValueFields: {formatList(d.checkedValueFields)}</Text>
+                <Text>Debug hasValueField: {String(d.hasValueField ?? '—')}</Text>
+                <Text>Debug hasGrandTotalField: {String(d.hasGrandTotalField ?? '—')}</Text>
+                <Text>Debug hasPricingField: {String(d.hasPricingField ?? '—')}</Text>
+                <Text>Debug hasTokens: {String(d.hasTokens ?? '—')}</Text>
+                <Text>Debug hasVariables: {String(d.hasVariables ?? '—')}</Text>
+                <Text>Debug tokenNamesSample: {formatList(d.tokenNamesSample)}</Text>
+                <Text>Debug linkedObjectKeys: {formatList(d.linkedObjectKeys)}</Text>
+                <Text>Debug metadataKeys: {formatList(d.metadataKeys)}</Text>
+              </Box>
+            );
+          })}
+        </Flex>
+      )}
     </Flex>
   );
 }

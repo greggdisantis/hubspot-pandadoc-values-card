@@ -22,15 +22,18 @@ const STATUS_GROUPS = {
   completedSigned: new Set(['document.completed', 'document.paid']),
 };
 
+const normalizeServerlessPayload = (raw) => {
+  const payload = raw?.response?.body || raw?.response || raw?.body || raw || {};
+  return {
+    documents: Array.isArray(payload.documents) ? payload.documents : [],
+    totals: payload?.totals || {},
+    debug: payload?.debug || {},
+  };
+};
+
 const formatUsd = (value) => {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return '—';
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(Number(value));
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(value));
 };
 
 const formatDate = (value) => {
@@ -44,20 +47,18 @@ hubspot.extend(({ context, runServerlessFunction }) => <PandaDocDocumentValuesCa
 
 function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   const dealId = context?.crm?.objectId || context?.crm?.properties?.hs_object_id;
-  const [state, setState] = useState({ loading: true, error: null, data: null });
+  const [state, setState] = useState({ loading: true, error: null, data: { documents: [], totals: {}, debug: {} } });
 
   useEffect(() => {
     let isMounted = true;
 
     const load = async () => {
       if (!dealId) {
-        if (isMounted) {
-          setState({ loading: false, error: 'No HubSpot Deal ID found in context.', data: null });
-        }
+        if (isMounted) setState({ loading: false, error: 'No HubSpot Deal ID found in context.', data: { documents: [], totals: {}, debug: {} } });
         return;
       }
 
-      setState({ loading: true, error: null, data: null });
+      setState({ loading: true, error: null, data: { documents: [], totals: {}, debug: {} } });
       const response = await runServerlessFunction({
         name: 'getPandaDocDocuments',
         parameters: { dealId: String(dealId) },
@@ -65,10 +66,10 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
 
       if (!isMounted) return;
 
-      if (response.status === 'ERROR') {
-        setState({ loading: false, error: response?.message || 'Unable to reach PandaDoc.', data: null });
+      if (response?.status === 'ERROR') {
+        setState({ loading: false, error: response?.message || 'Unable to reach PandaDoc.', data: { documents: [], totals: {}, debug: {} } });
       } else {
-        setState({ loading: false, error: null, data: response.response });
+        setState({ loading: false, error: null, data: normalizeServerlessPayload(response) });
       }
     };
 
@@ -79,9 +80,10 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   }, [dealId, runServerlessFunction]);
 
   const documents = state.data?.documents || [];
+  const debug = state.data?.debug || {};
 
   const totals = useMemo(() => {
-    if (state.data?.totals) return state.data.totals;
+    if (state.data?.totals && Object.keys(state.data.totals).length) return state.data.totals;
 
     return documents.reduce(
       (acc, doc) => {
@@ -113,12 +115,17 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
     );
   }
 
-  if (!documents.length) {
-    return <Text>No PandaDoc documents found.</Text>;
-  }
+  if (!documents.length) return <Text>No PandaDoc documents found.</Text>;
 
   return (
     <Flex direction="column" gap="small">
+      {debug?.diagnosticMode && (
+        <Box>
+          <Text><strong>Diagnostic mode:</strong> true</Text>
+          <Text><strong>Received Deal ID:</strong> {String(debug.receivedDealId || '—')}</Text>
+          <Text><strong>Timestamp:</strong> {String(debug.timestamp || '—')}</Text>
+        </Box>
+      )}
       <Box>
         <Text><strong>Draft total:</strong> {formatUsd(totals.draft)}</Text>
         <Text><strong>Sent/viewed total:</strong> {formatUsd(totals.sentViewed)}</Text>
@@ -139,9 +146,7 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
         <TableBody>
           {documents.map((doc) => (
             <TableRow key={doc.id}>
-              <TableCell>
-                {doc.url ? <Link href={doc.url}>{doc.name}</Link> : doc.name}
-              </TableCell>
+              <TableCell>{doc.url ? <Link href={doc.url}>{doc.name}</Link> : doc.name}</TableCell>
               <TableCell>{doc.status || '—'}</TableCell>
               <TableCell>{formatUsd(doc.value)}</TableCell>
               <TableCell>{formatDate(doc.createdAt)}</TableCell>

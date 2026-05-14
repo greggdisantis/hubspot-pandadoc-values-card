@@ -1,0 +1,11 @@
+{
+  "uid": "pandadoc-document-values-card",
+  "type": "card",
+  "config": {
+    "name": "PandaDoc Document Values",
+    "description": "Displays related PandaDoc documents and value totals for the current Deal.",
+    "location": "crm.record.tab",
+    "entrypoint": "/app/cards/PandaDocDocumentValuesCard.jsx",
+    "objectTypes": ["DEALS"]
+  }
+}

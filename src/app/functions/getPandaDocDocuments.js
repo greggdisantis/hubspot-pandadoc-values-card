@@ -168,6 +168,6 @@ exports.main = async (context = {}) => {
 
     return { statusCode: 200, body: { documents, totals, debug: { pandaDocMode: 'manual-token-or-metadata-match', scannedDocumentCount: scannedDocs.length, matchedDocumentCount: documents.length, detailSuccesses, detailFailures, timedOut, matchFieldsChecked: ['metadata.hubspot.deal_id', 'Deal.DealID', 'Deal.HsObjectId', 'Deal.PandaDocMirrorJobId'] } } };
   } catch (error) {
-    return { statusCode: 502, body: { message: 'Unable to reach PandaDoc API.', error: error?.message || 'Unknown error' } };
+    return { statusCode: 502, body: { message: 'Unable to reach PandaDoc API.', error: error?.message || 'Unknown error', debug: { pandaDocMode: 'manual-token-or-metadata-match', scannedDocumentCount: 0, matchedDocumentCount: 0, detailSuccesses, detailFailures, timedOut, matchFieldsChecked: ['metadata.hubspot.deal_id', 'Deal.DealID', 'Deal.HsObjectId', 'Deal.PandaDocMirrorJobId'] } } };
   }
 };

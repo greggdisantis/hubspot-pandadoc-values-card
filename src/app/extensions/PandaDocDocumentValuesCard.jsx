@@ -23,14 +23,8 @@ const STATUS_GROUPS = {
 };
 
 const formatUsd = (value) => {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return '—';
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(Number(value));
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(value));
 };
 
 const formatDate = (value) => {
@@ -40,7 +34,9 @@ const formatDate = (value) => {
   return d.toLocaleDateString('en-US');
 };
 
-hubspot.extend(({ context, runServerlessFunction }) => <PandaDocDocumentValuesCard context={context} runServerlessFunction={runServerlessFunction} />);
+hubspot.extend(({ context, runServerlessFunction }) => (
+  <PandaDocDocumentValuesCard context={context} runServerlessFunction={runServerlessFunction} />
+));
 
 function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   const dealId = context?.crm?.objectId || context?.crm?.properties?.hs_object_id;
@@ -51,9 +47,7 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
 
     const load = async () => {
       if (!dealId) {
-        if (isMounted) {
-          setState({ loading: false, error: 'No HubSpot Deal ID found in context.', data: null });
-        }
+        if (isMounted) setState({ loading: false, error: 'No HubSpot Deal ID found in context.', data: null });
         return;
       }
 
@@ -73,16 +67,14 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
     };
 
     load();
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [dealId, runServerlessFunction]);
 
   const documents = state.data?.documents || [];
+  const debug = state.data?.debug || null;
 
   const totals = useMemo(() => {
     if (state.data?.totals) return state.data.totals;
-
     return documents.reduce(
       (acc, doc) => {
         const v = Number(doc.value) || 0;
@@ -114,16 +106,56 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
   }
 
   if (!documents.length) {
-    return <Text>No PandaDoc documents found.</Text>;
+    return (
+      <Flex direction="column" gap="small">
+        <Text>No PandaDoc documents found.</Text>
+
+        {debug && (
+          <Box>
+            <Divider />
+            <Text format={{ fontWeight: 'bold' }}>Debug Info</Text>
+            <Text>Deal ID sent: {debug.currentDealId || String(dealId) || '—'}</Text>
+            <Text>Documents scanned: {debug.scannedDocumentCount ?? '—'}</Text>
+            <Text>Detail fetches succeeded: {debug.detailSuccesses ?? '—'}</Text>
+            <Text>Detail fetches failed: {debug.detailFailures ?? '—'}</Text>
+            <Text>Timed out: {debug.timedOut ? 'Yes' : 'No'}</Text>
+            <Text>Fields checked: {Array.isArray(debug.matchFieldsChecked) ? debug.matchFieldsChecked.join(', ') : '—'}</Text>
+
+            {Array.isArray(debug.sampleDocuments) && debug.sampleDocuments.length > 0 && (
+              <Box>
+                <Divider />
+                <Text format={{ fontWeight: 'bold' }}>Sample Documents from PandaDoc (first {debug.sampleDocuments.length})</Text>
+                {debug.sampleDocuments.map((s, i) => (
+                  <Box key={i}>
+                    <Text format={{ fontWeight: 'bold' }}>{i + 1}. {s.name || '(no name)'}</Text>
+                    <Text>Status: {s.status || '—'}</Text>
+                    <Text>Created: {s.createdAt || '—'}</Text>
+                    <Text>Metadata keys: {Array.isArray(s.metadataKeys) && s.metadataKeys.length > 0 ? s.metadataKeys.join(', ') : '(none)'}</Text>
+                    <Text>metadata[hubspot.deal_id]: {s.metadataHubspotDealId || '(not set)'}</Text>
+                    <Text>Token names (deal-related): {Array.isArray(s.tokenNamesSample) && s.tokenNamesSample.length > 0 ? s.tokenNamesSample.join(', ') : '(none found)'}</Text>
+                    <Text>
+                      Candidate IDs: {s.candidateDealIds && Object.keys(s.candidateDealIds).length > 0
+                        ? Object.entries(s.candidateDealIds).map(([k, v]) => `${k}=${v}`).join(', ')
+                        : '(none)'}
+                    </Text>
+                    <Divider />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        )}
+      </Flex>
+    );
   }
 
   return (
     <Flex direction="column" gap="small">
       <Box>
-        <Text><strong>Draft total:</strong> {formatUsd(totals.draft)}</Text>
-        <Text><strong>Sent/viewed total:</strong> {formatUsd(totals.sentViewed)}</Text>
-        <Text><strong>Completed/signed total:</strong> {formatUsd(totals.completedSigned)}</Text>
-        <Text><strong>Overall total:</strong> {formatUsd(totals.overall)}</Text>
+        <Text>Total # of Documents: {documents.length}</Text>
+        <Text>Completed/signed total: {formatUsd(totals.completedSigned)}</Text>
+        <Text>Draft total: {formatUsd(totals.draft)}</Text>
+        <Text>Sent/viewed total: {formatUsd(totals.sentViewed)}</Text>
       </Box>
       <Divider />
       <Table compact>
@@ -139,9 +171,7 @@ function PandaDocDocumentValuesCard({ context, runServerlessFunction }) {
         <TableBody>
           {documents.map((doc) => (
             <TableRow key={doc.id}>
-              <TableCell>
-                {doc.url ? <Link href={doc.url}>{doc.name}</Link> : doc.name}
-              </TableCell>
+              <TableCell>{doc.url ? <Link href={doc.url}>{doc.name}</Link> : doc.name}</TableCell>
               <TableCell>{doc.status || '—'}</TableCell>
               <TableCell>{formatUsd(doc.value)}</TableCell>
               <TableCell>{formatDate(doc.createdAt)}</TableCell>
